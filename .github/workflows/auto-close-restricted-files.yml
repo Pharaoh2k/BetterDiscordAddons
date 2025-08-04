@@ -45,9 +45,9 @@ jobs:
                 const regex = new RegExp(regexPattern + '$');
 
                 if (regex.test(file)) {
-                  console.log(`File ${file} matches restricted pattern: ${pattern}`);
+                  console.log('File ' + file + ' matches restricted pattern: ' + pattern);
                   restrictedMatched = true;
-                  matchedFiles += `- ${file} (matches pattern: ${pattern})\n`;
+                  matchedFiles += '- ' + file + ' (matches pattern: ' + pattern + ')\n';
                   break;
                 }
               }
@@ -63,31 +63,49 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pr = context.payload.pull_request;
-            const author = pr.user.login;
-            const restrictedMatched = '${{ steps.changed-files.outputs.restricted_matched }}' === 'true';
+            console.log('=== DEBUG: Starting second step ===');
 
+            const pr = context.payload.pull_request;
+            console.log('PR number:', pr.number);
+
+            const author = pr.user.login;
+            console.log('Author:', author);
+
+            console.log('=== DEBUG: About to access outputs ===');
+            const restrictedMatchedRaw = '${{ steps.changed-files.outputs.restricted_matched }}';
+            console.log('Raw restricted_matched value:', restrictedMatchedRaw);
+
+            const restrictedMatched = restrictedMatchedRaw === 'true';
+            console.log('Parsed restrictedMatched:', restrictedMatched);
+
+            console.log('=== DEBUG: Building message ===');
             let message = '@' + author + ' This pull request has been automatically closed because it modifies restricted files.\n\n';
 
             message += '🚫 **Restricted file patterns detected**\n\n';
             message += 'The following files match restricted patterns:\n';
 
-            // Format the matched files with proper markdown backticks
-            const matchedFiles = '${{ steps.changed-files.outputs.matched_files }}';
-            const formattedFiles = matchedFiles.replace(/- ([^\s]+) \(matches pattern: ([^)]+)\)/g, '- `$1` (matches pattern: `$2`)');
-            message += formattedFiles + '\n';
+            console.log('=== DEBUG: About to access matched_files output ===');
+            const matchedFilesRaw = '${{ steps.changed-files.outputs.matched_files }}';
+            console.log('Raw matched_files value length:', matchedFilesRaw.length);
+            console.log('Raw matched_files value:', JSON.stringify(matchedFilesRaw));
+
+            // Skip the regex replacement for now to isolate the issue
+            message += matchedFilesRaw + '\n';
 
             message += 'These are compiled/built plugin files that are automatically generated from source code. ';
             message += 'Modifying these files directly is not allowed.\n\n';
             message += '## How to contribute properly:\n\n';
-            message += '1. 📁 Make your changes in the `src/plugins/` folder instead\n';
-            message += '2. 🔧 Use the build script to generate the plugin files: `bun run build`\n';
-            message += '3. 📤 Submit a new pull request with only the source file changes from `src/`\n';
-            message += '4. ❌ Do **NOT** include the generated files from `Plugins/` in your PR\n\n';
+            message += '1. 📁 Make your changes in the src/plugins/ folder instead\n';
+            message += '2. 🔧 Use the build script to generate the plugin files: bun run build\n';
+            message += '3. 📤 Submit a new pull request with only the source file changes from src/\n';
+            message += '4. ❌ Do **NOT** include the generated files from Plugins/ in your PR\n\n';
             message += '## Additional resources:\n';
             message += '- 📖 [Contributing Guidelines](' + context.payload.repository.html_url + '/blob/master/CONTRIBUTING.md)\n';
             message += '- 🏗️ [Build Documentation](' + context.payload.repository.html_url + '/blob/master/README.md)\n\n';
             message += 'Thank you for your interest in contributing! Please resubmit your PR following the guidelines above. 🙏';
+
+            console.log('=== DEBUG: Message built successfully ===');
+            console.log('Message length:', message.length);
 
             // Post comment explaining the closure
             await github.rest.issues.createComment({
