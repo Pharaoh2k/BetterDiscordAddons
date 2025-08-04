@@ -175,7 +175,7 @@ export default class BetterFormattingRedux extends Plugin {
             }
             else {
                 for (let w = 0; w < this.customWrappers.length; w++) {
-                    if (!this.settings[this.customWrappers[w] + "Format"]) continue;
+                    if (!this.settings[this.customWrappers[w].replace("Wrapper", "Format")]) continue;
                     const newText = this.doFormat(text, this.settings[this.customWrappers[w]] as string, i);
                     if (text != newText) {
                         text = newText;
@@ -198,9 +198,9 @@ export default class BetterFormattingRedux extends Plugin {
         const slateNode = ReactUtils.getOwnerInstance(textarea) as Component & {focus(): void; ref: RefObject<{getSlateEditor(): {selection: {anchor: {path: string, offset: number}, focus: {path: string, offset: number}}, apply<T>(o: T): void;};}>;};
         const slate = slateNode?.ref?.current?.getSlateEditor();
         if (!slate) return; // bail out if no slate
-        
+
         let offset; // new cursor offset
-        
+
         if (slate.selection.anchor.offset <= slate.selection.focus.offset) {
             offset = slate.selection.focus.offset + leftWrapper.length;
             slate.apply({type: "insert_text", text: leftWrapper, path: slate.selection.anchor.path, offset: slate.selection.anchor.offset});
@@ -211,13 +211,13 @@ export default class BetterFormattingRedux extends Plugin {
             slate.apply({type: "insert_text", text: rightWrapper, path: slate.selection.anchor.path, offset: slate.selection.anchor.offset});
             slate.apply({type: "insert_text", text: leftWrapper, path: slate.selection.focus.path, offset: slate.selection.focus.offset});
         }
-        
+
         // new selection data
         const newSelection = {
             anchor: {path: slate.selection.anchor.path, offset: offset},
             focus: {path: slate.selection.focus.path, offset: offset}
         };
-        
+
         slate.selection = newSelection; // update selection data
         slate.apply({type: "insert_text", text: "", path: slate.selection.anchor.path, offset: offset}); // update cursor position
         slateNode.focus();
@@ -267,7 +267,7 @@ export default class BetterFormattingRedux extends Plugin {
                     ContextMenu.open(e, contextMenu, {align: "bottom"});
                 });
             }
-            button.dataset.name = sorted[i];
+            button.dataset.name = sorted[i].replace("Button", "");
             if (this.settings.useIcons) button.innerHTML = ToolbarData[key].icon;
             else button.innerHTML = ToolbarData[key].displayName;
             toolbar.append(button);
@@ -327,7 +327,7 @@ export default class BetterFormattingRedux extends Plugin {
                     if (!button.dataset.name) return;
                     let wrapper = "";
                     if (button.classList.contains("native-format")) wrapper = this.discordWrappers[button.dataset.name];
-                    else wrapper = this.settings[button.dataset.name] as string;
+                    else wrapper = this.settings[button.dataset.name + "Wrapper"] as string;
                     this.wrapSelection(wrapper);
                 }
             });

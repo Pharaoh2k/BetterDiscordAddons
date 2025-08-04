@@ -9,7 +9,7 @@ const manifest: Manifest = {
             github_username: "zerebos",
             twitter_username: "IAmZerebos"
         }],
-        version: "2.3.14",
+        version: "2.3.15",
         description: "Enables different types of formatting in standard Discord chat.",
         github: "https://github.com/zerebos/BetterDiscordAddons/tree/master/Plugins/BetterFormattingRedux",
         github_raw: "https://raw.githubusercontent.com/zerebos/BetterDiscordAddons/master/Plugins/BetterFormattingRedux/BetterFormattingRedux.plugin.js"
@@ -19,8 +19,9 @@ const manifest: Manifest = {
             title: "GUI Works Again",
             type: "fixed",
             items: [
-                "Clicking the buttons works again!",
-                "Dragging to reorder the buttons is broken."
+                "All basic formatting buttons are now working again.",
+                "Settings appear and work as expected.",
+                "Formatting should happen for messages with images."
             ]
         }
     ],
