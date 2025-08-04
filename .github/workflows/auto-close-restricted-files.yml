@@ -136,4 +136,4 @@ jobs:
             } catch (error) {
               console.log('Note: Could not add labels. They may not exist in the repository.');
             }
-            console.log(`Successfully closed PR #${pr.number} due to restricted file modifications`);
+            console.log('Successfully closed PR #' + pr.number + ' due to restricted file modifications');
