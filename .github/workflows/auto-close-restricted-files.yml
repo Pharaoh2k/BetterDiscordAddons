@@ -10,14 +10,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Get list of changed files
         id: changed-files
         run: |
-          # Get the list of changed files
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          # Get the list of changed files using GitHub API
+          CHANGED_FILES=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files --jq '.[].filename')
           echo "Changed files:"
           echo "$CHANGED_FILES"
 
@@ -69,7 +67,7 @@ jobs:
 
             message += `🚫 **Restricted file patterns detected**\n\n`;
             message += `The following files match restricted patterns:\n`;
-            message += `${{ steps.changed-files.outputs.matched_files }}\n`;
+            message += '${{ steps.changed-files.outputs.matched_files }}' + '\n';
             message += `These are compiled/built plugin files that are automatically generated from source code. `;
             message += `Modifying these files directly is not allowed.\n\n`;
             message += `## How to contribute properly:\n\n`;
