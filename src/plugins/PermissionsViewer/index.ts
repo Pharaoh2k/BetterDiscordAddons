@@ -32,7 +32,7 @@ const {ContextMenu, DOM, Utils, Webpack, UI, ReactUtils} = BdApi;
 
 const GuildStore = Webpack.getStore<{getGuild(id: string): Guild;}>("GuildStore");
 const SelectedGuildStore = Webpack.getStore<{getGuildId(): string}>("SelectedGuildStore");
-const GuildRoleStore = Webpack.getStore<{getRoles(id: string): Record<string, GuildRole>; }>("GuildRoleStore");
+const GuildRoleStore = Webpack.getStore<{getRolesSnapshot(id: string): Record<string, GuildRole>; }>("GuildRoleStore");
 const MemberStore = Webpack.getStore<{getNick(gid: string, uid: string): string; getMembers(id: string): GuildMember[]; getMember(gid: string, uid: string): GuildMember;}>("GuildMemberStore");
 const UserStore = Webpack.getStore<{getUser(id: string): User}>("UserStore");
 const DiscordPermissions = Webpack.getModule<IDiscordPermissions>(m => m.ADD_REACTIONS, {searchExports: true});
@@ -99,6 +99,23 @@ const PermissionStringMap: Record<keyof IDiscordPermissions, string> = {
     VIEW_GUILD_ANALYTICS: "rQJBEx",
 };
 
+function isOverwriteEmpty(overwrite: PermissionOverwrite): boolean {
+    return !overwrite.allow && !overwrite.deny && overwrite.type == 0;
+}
+
+/**
+ * For some reason, Discord sometimes creates an overwrite object for the
+ * `@everyone` role that has no permissions set.
+ * @param channel
+ * @returns
+ */
+function hasOverwrites(channel: Channel): boolean {
+    const roleIds = Object.keys(channel.permissionOverwrites);
+    if (roleIds.length === 0) return false;
+    if (roleIds.length === 1 && isOverwriteEmpty(channel.permissionOverwrites[roleIds[0]])) return false;
+    return true;
+}
+
 export default class PermissionsViewer extends Plugin {
     constructor(meta: Meta) {super(meta, Config);}
 
@@ -146,6 +163,7 @@ export default class PermissionsViewer extends Plugin {
 
     patchPopouts(e: MutationRecord) {
         const popoutMount = (props: {displayProfile: {guildId: string;}; user: User;}) => {
+            if (!props || !props.displayProfile || !props.user) return;
             const popout = document.querySelector<HTMLDivElement>(`[class*="userPopout_"], [class*="outer_"]`);
             if (!popout || popout.querySelector("#permissions-popout")) return;
             const user = MemberStore?.getMember(props.displayProfile.guildId, props.user.id);
@@ -184,23 +202,28 @@ export default class PermissionsViewer extends Plugin {
             }
 
             permBlock.querySelector<HTMLSpanElement>(".perm-details")?.addEventListener("click", () => {
+                popoutInstance?.props?.targetRef?.current?.click(); // Close the popout
+                document.querySelector<HTMLDivElement>(`[class*="backdrop__"]`)?.click(); // Close the modal
                 this.showModal(this.createModalUser(name, user, guild));
             });
 
-            const roleList = popout.querySelector<HTMLDivElement>(`[class*="section_"]`);
-            roleList?.parentElement?.parentNode?.append(permBlock);
-            
+            let roleList = popout.querySelector<HTMLDivElement>(`[class*="root_"]`);
+            if (roleList?.parentElement?.className.includes("section")) roleList = roleList.parentElement as HTMLDivElement;
+            roleList?.after(permBlock);
 
-
-            const popoutInstance = ReactUtils.getOwnerInstance(popout, {include: ["Popout"]}) as Component & {updateOffsets(): void;};
-            if (!popoutInstance || !popoutInstance.updateOffsets) return;
-            popoutInstance.updateOffsets();
+            const popoutInstance = Utils.findInTree<Component & {updatePosition(): void; props: {targetRef: {current: HTMLElement | null}}}>(
+                ReactUtils.getInternalInstance(popout),
+                (m: {updatePosition?: () => void}) => m && m.updatePosition,
+                {walkable: ["stateNode", "return"]}
+            );
+            if (!popoutInstance || !popoutInstance.updatePosition) return;
+            popoutInstance.updatePosition();
         };
 
         if (!e.addedNodes.length || !(e.addedNodes[0] instanceof Element)) return;
         const element = e.addedNodes[0];
         const popout = element.querySelector<HTMLDivElement>(`[class*="userPopout_"], [class*="outer_"]`) ?? element as HTMLDivElement;
-        // console.log(popout);
+
         if (!popout || !popout.matches(`[class*="userPopout_"], [class*="outer_"]`)) return;
         const props = Utils.findInTree<{displayProfile: {guildId: string;}; user: User;}>(ReactUtils.getInternalInstance(popout), (m: {user?: User}) => m && m.user, {walkable: ["memoizedProps", "return"]});
         popoutMount(props);
@@ -242,7 +265,7 @@ export default class PermissionsViewer extends Plugin {
             const newItem = ContextMenu.buildItem({
                 label: this.strings.contextMenuLabel,
                 action: () => {
-                    if (!Object.keys(props.channel.permissionOverwrites).length) return UI.showToast(`#${props.channel.name} has no permission overrides`, {type: "info"});
+                    if (!hasOverwrites(props.channel)) return UI.showToast(`#${props.channel.name} has no permission overrides`, {type: "info"});
                     this.showModal(this.createModalChannel(props.channel.name, props.channel, props.guild));
                 }
             });
@@ -291,7 +314,7 @@ export default class PermissionsViewer extends Plugin {
     createModalUser(name: string, user: GuildMember, guild: Guild) {
         const guildRoles = Object.assign({}, getRoles(guild)) as Record<string, Partial<GuildRole>>;
         const userRoles = user.roles.slice(0).filter(r => typeof(guildRoles[r]) !== "undefined");
-        
+
         userRoles.push(guild.id);
         userRoles.sort((a, b) => {return guildRoles[b].position! - guildRoles[a].position!;});
 

@@ -9,7 +9,7 @@ const manifest: Manifest = {
             github_username: "zerebos",
             twitter_username: "IAmZerebos"
         }],
-        version: "0.3.0",
+        version: "0.3.1",
         description: "Allows you to view a user's permissions. Thanks to Noodlebox for the idea!",
         github: "https://github.com/zerebos/BetterDiscordAddons/tree/master/Plugins/PermissionsViewer",
         github_raw: "https://raw.githubusercontent.com/zerebos/BetterDiscordAddons/master/Plugins/PermissionsViewer/PermissionsViewer.plugin.js"
@@ -19,18 +19,18 @@ const manifest: Manifest = {
             title: "What's New?",
             type: "added",
             items: [
-                "Plugin no longer depends on ZeresPluginLibrary!",
-                "Popout permissions updated to match Discord's new style."
+                "Popout permissions updated to match Discord's new style.",
+                "Modal permissions updated to match Discord's new style."
             ]
         },
         {
             title: "Fixes",
             type: "fixed",
             items: [
-                "The main startup error has finally been fixed!",
-                "Fixed an issue where localization wouldn't process correctly.",
-                "Permissions should now show properly on the new user popouts.",
-                "Modals should now close when pressing Escape."
+                "User popouts should close when opening the permissions modal.",
+                "User modals should close when opening the permissions modal.",
+                "The occasional error in console has been fixed.",
+                "Fixed channel overwrite detection.",
             ]
         }
     ],
@@ -153,7 +153,7 @@ const manifest: Manifest = {
             },
             settings: {
                 popouts: {
-                    name: "Показать во всплывающих окнах", 
+                    name: "Показать во всплывающих окнах",
                     note: "Отображает полномочия пользователя в их всплывающем окне, аналогичном ролям."
                 },
                 contextMenus: {

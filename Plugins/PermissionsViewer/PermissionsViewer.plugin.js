@@ -1,7 +1,7 @@
 /**
  * @name PermissionsViewer
  * @description Allows you to view a user's permissions. Thanks to Noodlebox for the idea!
- * @version 0.3.0
+ * @version 0.3.1
  * @author Zerebos
  * @authorId 249746236008169473
  * @website https://github.com/zerebos/BetterDiscordAddons/tree/master/Plugins/PermissionsViewer
@@ -183,7 +183,7 @@ var manifest = {
       github_username: "zerebos",
       twitter_username: "IAmZerebos"
     }],
-    version: "0.3.0",
+    version: "0.3.1",
     description: "Allows you to view a user's permissions. Thanks to Noodlebox for the idea!",
     github: "https://github.com/zerebos/BetterDiscordAddons/tree/master/Plugins/PermissionsViewer",
     github_raw: "https://raw.githubusercontent.com/zerebos/BetterDiscordAddons/master/Plugins/PermissionsViewer/PermissionsViewer.plugin.js"
@@ -193,18 +193,18 @@ var manifest = {
       title: "What's New?",
       type: "added",
       items: [
-        "Plugin no longer depends on ZeresPluginLibrary!",
-        "Popout permissions updated to match Discord's new style."
+        "Popout permissions updated to match Discord's new style.",
+        "Modal permissions updated to match Discord's new style."
       ]
     },
     {
       title: "Fixes",
       type: "fixed",
       items: [
-        "The main startup error has finally been fixed!",
-        "Fixed an issue where localization wouldn't process correctly.",
-        "Permissions should now show properly on the new user popouts.",
-        "Modals should now close when pressing Escape."
+        "User popouts should close when opening the permissions modal.",
+        "User modals should close when opening the permissions modal.",
+        "The occasional error in console has been fixed.",
+        "Fixed channel overwrite detection."
       ]
     }
   ],
@@ -391,8 +391,8 @@ function rgbToAlpha(color, alpha) {
 // src/plugins/PermissionsViewer/index.ts
 var { ContextMenu, DOM, Utils, Webpack, UI, ReactUtils } = BdApi;
 var GuildStore = Webpack.getStore("GuildStore");
-var GuildRoleStore = Webpack.getStore("GuildRoleStore");
 var SelectedGuildStore = Webpack.getStore("SelectedGuildStore");
+var GuildRoleStore = Webpack.getStore("GuildRoleStore");
 var MemberStore = Webpack.getStore("GuildMemberStore");
 var UserStore = Webpack.getStore("UserStore");
 var DiscordPermissions = Webpack.getModule((m) => m.ADD_REACTIONS, { searchExports: true });
@@ -455,6 +455,15 @@ var PermissionStringMap = {
   VIEW_CREATOR_MONETIZATION_ANALYTICS: "0lTLTk",
   VIEW_GUILD_ANALYTICS: "rQJBEx"
 };
+function isOverwriteEmpty(overwrite) {
+  return !overwrite.allow && !overwrite.deny && overwrite.type == 0;
+}
+function hasOverwrites(channel) {
+  const roleIds = Object.keys(channel.permissionOverwrites);
+  if (roleIds.length === 0) return false;
+  if (roleIds.length === 1 && isOverwriteEmpty(channel.permissionOverwrites[roleIds[0]])) return false;
+  return true;
+}
 var PermissionsViewer = class extends Plugin {
   constructor(meta) {
     super(meta, config_default);
@@ -496,6 +505,7 @@ var PermissionsViewer = class extends Plugin {
   }
   patchPopouts(e) {
     const popoutMount = (props2) => {
+      if (!props2 || !props2.displayProfile || !props2.user) return;
       const popout2 = document.querySelector(`[class*="userPopout_"], [class*="outer_"]`);
       if (!popout2 || popout2.querySelector("#permissions-popout")) return;
       const user = MemberStore?.getMember(props2.displayProfile.guildId, props2.user.id);
@@ -529,13 +539,20 @@ var PermissionsViewer = class extends Plugin {
         }
       }
       permBlock.querySelector(".perm-details")?.addEventListener("click", () => {
+        popoutInstance?.props?.targetRef?.current?.click();
+        document.querySelector(`[class*="backdrop__"]`)?.click();
         this.showModal(this.createModalUser(name, user, guild));
       });
-      const roleList = popout2.querySelector(`[class*="section_"]`);
-      roleList?.parentElement?.parentNode?.append(permBlock);
-      const popoutInstance = ReactUtils.getOwnerInstance(popout2, { include: ["Popout"] });
-      if (!popoutInstance || !popoutInstance.updateOffsets) return;
-      popoutInstance.updateOffsets();
+      let roleList = popout2.querySelector(`[class*="root_"]`);
+      if (roleList?.parentElement?.className.includes("section")) roleList = roleList.parentElement;
+      roleList?.after(permBlock);
+      const popoutInstance = Utils.findInTree(
+        ReactUtils.getInternalInstance(popout2),
+        (m) => m && m.updatePosition,
+        { walkable: ["stateNode", "return"] }
+      );
+      if (!popoutInstance || !popoutInstance.updatePosition) return;
+      popoutInstance.updatePosition();
     };
     if (!e.addedNodes.length || !(e.addedNodes[0] instanceof Element)) return;
     const element = e.addedNodes[0];
@@ -575,7 +592,7 @@ var PermissionsViewer = class extends Plugin {
       const newItem = ContextMenu.buildItem({
         label: this.strings.contextMenuLabel,
         action: () => {
-          if (!Object.keys(props.channel.permissionOverwrites).length) return UI.showToast(`#${props.channel.name} has no permission overrides`, { type: "info" });
+          if (!hasOverwrites(props.channel)) return UI.showToast(`#${props.channel.name} has no permission overrides`, { type: "info" });
           this.showModal(this.createModalChannel(props.channel.name, props.channel, props.guild));
         }
       });
