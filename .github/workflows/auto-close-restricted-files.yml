@@ -64,7 +64,7 @@ jobs:
           RESTRICTED_MATCHED: ${{ steps.changed-files.outputs.restricted_matched }}
           MATCHED_FILES: ${{ steps.changed-files.outputs.matched_files }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.AUTO_CLOSE_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             console.log('=== DEBUG: Starting second step ===');
 
@@ -102,33 +102,69 @@ jobs:
 
             console.log('=== DEBUG: Message built successfully ===');
 
-            // Post comment explaining the closure
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr.number,
-              body: message
-            });
-
-            // Close the pull request
-            await github.rest.pulls.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              state: 'closed'
-            });
-
-            // Add helpful labels
-            const labels = ['auto-closed', 'invalid-files', 'restricted-patterns'];
-
             try {
-              await github.rest.issues.addLabels({
+              // First, let's check what permissions we have
+              console.log('Checking permissions...');
+              console.log('PR author association:', pr.author_association);
+              console.log('Repository owner:', context.repo.owner);
+              console.log('PR author:', author);
+
+              // Try to get current user to understand our permissions
+              const { data: currentUser } = await github.rest.users.getAuthenticated();
+              console.log('Acting as user:', currentUser.login);
+
+              // Post comment explaining the closure
+              await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pr.number,
-                labels: labels
+                body: message
               });
+              console.log('Comment posted successfully');
+
+              // Close the pull request
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                state: 'closed'
+              });
+              console.log('PR closed successfully');
+
+              // Add helpful labels
+              const labels = ['auto-closed', 'invalid-files', 'restricted-patterns'];
+
+              try {
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  labels: labels
+                });
+                console.log('Labels added successfully');
+              } catch (error) {
+                console.log('Note: Could not add labels. They may not exist in the repository.');
+              }
+
+              console.log('Successfully closed PR #' + pr.number + ' due to restricted file modifications');
+
             } catch (error) {
-              console.log('Note: Could not add labels. They may not exist in the repository.');
+              console.log('Error details:', error.message);
+              console.log('Error status:', error.status);
+              console.log('PR author association:', pr.author_association);
+
+              if (error.status === 403) {
+                console.log('Permission denied - this is likely a PR from an outside contributor.');
+                console.log('The PR contains restricted files but cannot be auto-closed due to GitHub security restrictions.');
+                console.log('Repository maintainers should manually review and close this PR.');
+                console.log('PR #' + pr.number + ' by @' + author + ' modifies restricted files.');
+                console.log('Matched files:', matchedFiles);
+
+                // Instead of throwing an error, let's exit gracefully with a summary
+                console.log('SUMMARY: Auto-close blocked by permissions. Manual action required.');
+                core.setFailed('Manual review required: PR #' + pr.number + ' modifies restricted files but cannot be auto-closed due to GitHub permissions.');
+
+              } else {
+                throw error; // Re-throw other errors
+              }
             }
-            console.log('Successfully closed PR #' + pr.number + ' due to restricted file modifications');
