@@ -1,5 +1,7 @@
 name: Auto-close PRs modifying restricted files
 
+permissions: write-all
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -79,7 +81,7 @@ jobs:
             const author = pr.user.login;
 
             console.log('=== DEBUG: Building message ===');
-            let message = '@' + author + ' This pull request has been automatically closed because it modifies restricted files.\n\n';
+            let message = '🤖 **Automated message** - @' + author + ' This pull request has been automatically closed because it modifies restricted files.\n\n';
 
             message += '🚫 **Restricted file patterns detected**\n\n';
             message += 'The following files match restricted patterns:\n';
