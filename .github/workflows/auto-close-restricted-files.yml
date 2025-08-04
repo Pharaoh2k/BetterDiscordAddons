@@ -60,14 +60,17 @@ jobs:
       - name: Close PR if restricted files are modified
         if: steps.changed-files.outputs.restricted_matched == 'true'
         uses: actions/github-script@v7
+        env:
+          RESTRICTED_MATCHED: ${{ steps.changed-files.outputs.restricted_matched }}
+          MATCHED_FILES: ${{ steps.changed-files.outputs.matched_files }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             console.log('=== DEBUG: Starting second step ===');
 
-            // Use github-script's built-in way to access step outputs
-            const restrictedMatched = steps['changed-files'].outputs.restricted_matched === 'true';
-            const matchedFiles = steps['changed-files'].outputs.matched_files || '';
+            // Use environment variables to safely access step outputs
+            const restrictedMatched = process.env.RESTRICTED_MATCHED === 'true';
+            const matchedFiles = process.env.MATCHED_FILES || '';
 
             console.log('Restricted matched:', restrictedMatched);
             console.log('Matched files:', matchedFiles);
@@ -80,15 +83,18 @@ jobs:
 
             message += '🚫 **Restricted file patterns detected**\n\n';
             message += 'The following files match restricted patterns:\n';
-            message += matchedFiles + '\n';
+
+            // Add backticks for proper markdown formatting
+            const formattedFiles = matchedFiles.replace(/- ([^\s]+) \(matches pattern: ([^)]+)\)/g, '- `$1` (matches pattern: `$2`)');
+            message += formattedFiles + '\n';
 
             message += 'These are compiled/built plugin files that are automatically generated from source code. ';
             message += 'Modifying these files directly is not allowed.\n\n';
             message += '## How to contribute properly:\n\n';
-            message += '1. 📁 Make your changes in the src/plugins/ folder instead\n';
-            message += '2. 🔧 Use the build script to generate the plugin files: bun run build\n';
-            message += '3. 📤 Submit a new pull request with only the source file changes from src/\n';
-            message += '4. ❌ Do **NOT** include the generated files from Plugins/ in your PR\n\n';
+            message += '1. 📁 Make your changes in the `src/plugins/` folder instead\n';
+            message += '2. 🔧 Use the build script to generate the plugin files: `bun run build`\n';
+            message += '3. 📤 Submit a new pull request with only the source file changes from `src/`\n';
+            message += '4. ❌ Do **NOT** include the generated files from `Plugins/` in your PR\n\n';
             message += '## Additional resources:\n';
             message += '- 📖 [Contributing Guidelines](' + context.payload.repository.html_url + '/blob/master/CONTRIBUTING.md)\n';
             message += '- 🏗️ [Build Documentation](' + context.payload.repository.html_url + '/blob/master/README.md)\n\n';
