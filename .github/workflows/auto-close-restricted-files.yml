@@ -3,7 +3,7 @@ name: Auto-close PRs modifying restricted files
 permissions: write-all
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
 
 jobs:
@@ -66,7 +66,7 @@ jobs:
           RESTRICTED_MATCHED: ${{ steps.changed-files.outputs.restricted_matched }}
           MATCHED_FILES: ${{ steps.changed-files.outputs.matched_files }}
         with:
-          github-token: ${{ secrets.AUTO_CLOSE_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             console.log('=== DEBUG: Starting second step ===');
 
