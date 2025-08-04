@@ -7,7 +7,8 @@ import formatString from "@common/formatstring";
 
 import Config from "./config";
 import popoutHTML from "./popout.html";
-import itemHTML from "./item.html"; 
+import itemHTML from "./item.html";
+import {GuildRole} from "@discord";
 
 
 const {DOM, ContextMenu, Patcher, Webpack, UI, Utils} = BdApi;
@@ -17,21 +18,18 @@ const from = (arr: [string, unknown][]) => arr && arr.length > 0 && Object.assig
 const filter = <T extends Record<string, unknown>>(obj: T, predicate: (o: unknown) => boolean) => from(Object.entries(obj).filter((o) => {return predicate(o[1]);}));
 
 const SelectedGuildStore = BdApi.Webpack.getStore<{getGuildId(): string}>("SelectedGuildStore");
-const GuildStore = BdApi.Webpack.getStore<{getRoles(id: string): Record<string, Role>}>("GuildStore");
+// const GuildStore = BdApi.Webpack.getStore<{getRoles(id: string): Record<string, Role>}>("GuildStore");
 const GuildMemberStore = BdApi.Webpack.getStore<{getMembers(id: string): {userId: string; roles: string[]}[]}>("GuildMemberStore");
+const GuildRoleStore = Webpack.getStore<{getRolesSnapshot(id: string): Record<string, GuildRole>; }>("GuildRoleStore");
 const UserStore = BdApi.Webpack.getStore<{getUser(id: string): {username: string}}>("UserStore");
 const ImageResolver = BdApi.Webpack.getByKeys<{getUserAvatarURL(user: object): string}>("getUserAvatarURL", "getEmojiURL");
+const UserModals = BdApi.Webpack.getByKeys<{openUserProfileModal(opts: {userId: string}): void}>("openUserProfileModal");
 
 type ClassModule = Record<string, string>;
 
 const LayerClasses = BdApi.Webpack.getByKeys<ClassModule>("layerContainer");
 
-interface Role {
-    id: string;
-    name: string;
-    colorString: string;
-}
-const getRoles = (guild: {roles?: Record<string, Role>; id: string}): Record<string, Role> | undefined => guild?.roles ?? GuildStore?.getRoles(guild?.id);
+const getRoles = (guild: {roles?: Record<string, GuildRole>; id: string}): Record<string, GuildRole> | undefined => guild?.roles ?? GuildRoleStore?.getRolesSnapshot(guild?.id);
 
 export default class RoleMembers extends Plugin {
     constructor(meta: Meta) {
@@ -57,12 +55,13 @@ export default class RoleMembers extends Plugin {
         const Pill = Webpack.getModule(Webpack.Filters.byStrings("interactive", "iconType"), {defaultExport: false});
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         Patcher.before(this.meta.name, Pill, "Z" as keyof typeof Pill, (_, [props]: [Record<string, any>]) => {
-            if (!props?.className.toLowerCase().includes("rolemention")) return;
+            if (!props?.className?.toLowerCase?.()?.includes?.("rolemention")) return;
+            if (props.className.toLowerCase().includes("interactive")) return; // Already patched
             props.className += ` interactive`;
             props.onClick = (e: SyntheticEvent<MouseEvent>) => {
                 const roles = getRoles({id: SelectedGuildStore!.getGuildId()});
-                const name = props.children[1][0].slice(1);
-                const filtered = filter(roles!, (r: Role) => r.name == name) as Record<string, Role>;
+                const name = props.children[1][0].props.children.slice(1) as string;
+                const filtered = filter(roles!, (r: GuildRole) => r.name == name) as Record<string, GuildRole>;
                 if (!filtered) return;
                 const role = filtered[Object.keys(filtered)[0]];
                 this.showRolePopout(e.nativeEvent.target as HTMLSpanElement, SelectedGuildStore!.getGuildId(), role.id);
@@ -152,7 +151,8 @@ export default class RoleMembers extends Plugin {
             const user = UserStore!.getUser(member.userId);
             const elem = DOM.parseHTML(formatString(itemHTML, {username: Utils.escapeHTML(user.username), avatar_url: ImageResolver!.getUserAvatarURL(user)})) as HTMLDivElement;
             elem.addEventListener("click", () => {
-                UI.showToast("Sorry, user popouts are currently broken!", {type: "error"});
+                UserModals!.openUserProfileModal({userId: member.userId});
+                // UI.showToast("Sorry, user popouts are currently broken!", {type: "error"});
                 // setTimeout(() => Popouts.showUserPopout(elem, user, {guild: guildId}), 1);
             });
             scroller.append(elem);
@@ -164,7 +164,7 @@ export default class RoleMembers extends Plugin {
 
     showPopout(popout: HTMLElement, relativeTarget: HTMLElement | {getBoundingClientRect(): DOMRect}) {
         if (this.listener) this.listener(null); // Close any previous popouts
-        
+
         document.querySelector(`[class*="app_"] ~ .${LayerClasses?.layerContainer ?? "layerContainer_cd0de5"}`)?.append(popout);
 
         const maxWidth = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);

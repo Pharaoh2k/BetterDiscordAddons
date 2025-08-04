@@ -1,7 +1,7 @@
 /**
  * @name RoleMembers
  * @description Allows you to see the members of each role on a server.
- * @version 0.1.24
+ * @version 0.1.25
  * @author Zerebos
  * @authorId 249746236008169473
  * @website https://github.com/zerebos/BetterDiscordAddons/tree/master/Plugins/RoleMembers
@@ -51,11 +51,11 @@ var __copyProps = (to, from2, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/plugins/RoleMembers/index.ts
-var RoleMembers_exports = {};
-__export(RoleMembers_exports, {
+var index_exports = {};
+__export(index_exports, {
   default: () => RoleMembers
 });
-module.exports = __toCommonJS(RoleMembers_exports);
+module.exports = __toCommonJS(index_exports);
 
 // src/common/plugin.ts
 var Plugin = class {
@@ -66,7 +66,7 @@ var Plugin = class {
   LocaleManager;
   get strings() {
     if (!this.manifest.strings) return {};
-    const locale = this.LocaleManager?.getLocale().split("-")[0] ?? "en";
+    const locale = this.LocaleManager?.locale.split("-")[0] ?? "en";
     if (this.manifest.strings.hasOwnProperty(locale)) return this.manifest.strings[locale];
     if (this.manifest.strings.hasOwnProperty("en")) return this.manifest.strings.en;
     return this.manifest.strings;
@@ -94,7 +94,7 @@ var Plugin = class {
       this.#showChangelog();
       BdApi.Data.save(this.meta.name, "version", this.meta.version);
     }
-    if (this.manifest.strings) this.LocaleManager = BdApi.Webpack.getModule((m) => m?.Messages && Object.keys(m?.Messages).length > 0);
+    if (this.manifest.strings) this.LocaleManager = BdApi.Webpack.getByKeys("locale", "initialize");
     if (this.manifest.config && !this.getSettingsPanel) {
       this.getSettingsPanel = () => {
         this.#updateConfig();
@@ -160,12 +160,15 @@ var Plugin = class {
 };
 
 // src/common/formatstring.ts
-function formatString(stringToFormat, values) {
-  for (const val in values) {
-    let replacement = values[val];
-    if (Array.isArray(replacement)) replacement = JSON.stringify(replacement);
-    if (typeof replacement === "object" && replacement !== null) replacement = replacement.toString();
-    stringToFormat = stringToFormat.replace(new RegExp(`{{${val}}}`, "g"), replacement.toString());
+function formatString(stringToFormat, ...replacements) {
+  for (let v = 0; v < replacements.length; v++) {
+    const values = replacements[v];
+    for (const val in values) {
+      let replacement = values[val];
+      if (Array.isArray(replacement)) replacement = JSON.stringify(replacement);
+      if (typeof replacement === "object" && replacement !== null) replacement = replacement.toString();
+      stringToFormat = stringToFormat.replace(new RegExp(`{{${val}}}`, "g"), replacement.toString());
+    }
   }
   return stringToFormat;
 }
@@ -180,13 +183,21 @@ var manifest = {
       github_username: "zerebos",
       twitter_username: "IAmZerebos"
     }],
-    version: "0.1.24",
+    version: "0.1.25",
     description: "Allows you to see the members of each role on a server.",
     github: "https://github.com/zerebos/BetterDiscordAddons/tree/master/Plugins/RoleMembers",
     github_raw: "https://raw.githubusercontent.com/zerebos/BetterDiscordAddons/master/Plugins/RoleMembers/RoleMembers.plugin.js"
   },
   changelog: [
-    { title: "Hot Fix", type: "fixed", items: ["The settings panel will now reflect your actual settings!"] }
+    {
+      title: "Totally Fixed",
+      type: "fixed",
+      items: [
+        "Context menu role member listing should finally be working again.",
+        "Clicking a user in the role members list now opens their profile modal.",
+        "Role mention pills should now be properly patched again."
+      ]
+    }
   ],
   config: [
     {
@@ -202,10 +213,10 @@ var manifest = {
 var config_default = manifest;
 
 // src/plugins/RoleMembers/popout.html
-var popout_default = '<div class="theme-dark layer_cd0de5" style="z-index: 100">\n<div class="animatorBottom_f88ae3 translate_f88ae3 didRender_f88ae3 popout-role-members" style="margin-top: 0;">\n    <div class="container_ac201b selectFilterPopout_cfe282 elevationBorderHigh_ff8688 scroller_ac201b role-members-popout">\n        <div class="searchWithScrollbar_eef3ef container_c18ec9 medium_c18ec9">\n            <div class="inner_c18ec9">\n                <input class="input_c18ec9" placeholder="Search Members \u2014 {{memberCount}}" value="">\n                <div tabindex="0" class="iconLayout_c18ec9 medium_c18ec9" role="button">\n                    <div class="iconContainer_c18ec9">\n                        <svg name="Search" class="icon_c18ec9 visible_c18ec9" width="18" height="18" viewBox="0 0 18 18"><g fill="none" fill-rule="evenodd"><path fill="currentColor" d="M3.60091481,7.20297313 C3.60091481,5.20983419 5.20983419,3.60091481 7.20297313,3.60091481 C9.19611206,3.60091481 10.8050314,5.20983419 10.8050314,7.20297313 C10.8050314,9.19611206 9.19611206,10.8050314 7.20297313,10.8050314 C5.20983419,10.8050314 3.60091481,9.19611206 3.60091481,7.20297313 Z M12.0057176,10.8050314 L11.3733562,10.8050314 L11.1492281,10.5889079 C11.9336764,9.67638651 12.4059463,8.49170955 12.4059463,7.20297313 C12.4059463,4.32933105 10.0766152,2 7.20297313,2 C4.32933105,2 2,4.32933105 2,7.20297313 C2,10.0766152 4.32933105,12.4059463 7.20297313,12.4059463 C8.49170955,12.4059463 9.67638651,11.9336764 10.5889079,11.1492281 L10.8050314,11.3733562 L10.8050314,12.0057176 L14.8073185,16 L16,14.8073185 L12.2102538,11.0099776 L12.0057176,10.8050314 Z"></path></g></svg>\n                    </div>\n                </div>\n            </div>\n        </div>\n        <div>\n            <div class="list_eef3ef list_ac201b scroller_eef3ef thin_eed6a8 scrollerBase_eed6a8 role-members" dir="ltr" style="overflow: hidden scroll; padding-right: 0px; max-height: 400px;">\n                \n            </div>\n        </div>\n    </div>\n</div>\n</div>';
+var popout_default = '<div class="theme-dark theme-darker images-dark layer_da8173" style="z-index: 100">\n<div class="animatorBottom_faf9c0 translate_faf9c0 didRender_faf9c0 popout-role-members" style="margin-top: 0;">\n    <div class="container__3dde2 selectFilterPopout__5906b elevationBorderHigh__2b2f1 scroller__3dde2 role-members-popout">\n        <div class="searchWithScrollbar__97e86 container_a45028 wrapper_a45028 md_a45028 text-md/normal_a45028">\n            <div class="inner_a45028">\n                <input class="input_a45028" placeholder="Search Members \u2014 {{memberCount}}" value="">\n                <div tabindex="0" class="iconLayout__0c4c4" data-size="md" role="button">\n                    <div class="iconContainer__0c4c4">\n                        <svg name="Search" class="icon__0c4c4 visible__0c4c4" width="18" height="18" viewBox="0 0 18 18"><g fill="none" fill-rule="evenodd"><path fill="currentColor" d="M3.60091481,7.20297313 C3.60091481,5.20983419 5.20983419,3.60091481 7.20297313,3.60091481 C9.19611206,3.60091481 10.8050314,5.20983419 10.8050314,7.20297313 C10.8050314,9.19611206 9.19611206,10.8050314 7.20297313,10.8050314 C5.20983419,10.8050314 3.60091481,9.19611206 3.60091481,7.20297313 Z M12.0057176,10.8050314 L11.3733562,10.8050314 L11.1492281,10.5889079 C11.9336764,9.67638651 12.4059463,8.49170955 12.4059463,7.20297313 C12.4059463,4.32933105 10.0766152,2 7.20297313,2 C4.32933105,2 2,4.32933105 2,7.20297313 C2,10.0766152 4.32933105,12.4059463 7.20297313,12.4059463 C8.49170955,12.4059463 9.67638651,11.9336764 10.5889079,11.1492281 L10.8050314,11.3733562 L10.8050314,12.0057176 L14.8073185,16 L16,14.8073185 L12.2102538,11.0099776 L12.0057176,10.8050314 Z"></path></g></svg>\n                    </div>\n                </div>\n            </div>\n        </div>\n        <div>\n            <div class="list__97e86 list__3dde2 scroller__97e86 thin__99f8c scrollerBase__99f8c role-members" dir="ltr" style="overflow: hidden scroll; padding-right: 0px; max-height: 400px;">\n\n            </div>\n        </div>\n    </div>\n</div>\n</div>';
 
 // src/plugins/RoleMembers/item.html
-var item_default = '<div class="item_eef3ef role-member">\n    <div class="itemCheckbox_eef3ef">\n        <div class="wrapper_c51b4e avatar_cfe282" role="img" aria-hidden="false" style="width: 32px; height: 32px;">\n            <svg width="40" height="32" viewBox="0 0 40 32" class="mask_c51b4e svg_c51b4e" aria-hidden="true">\n                <foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-default)">\n                        <div class="avatarStack_c51b4e">\n                            <img src="{{avatar_url}}" alt=" " class="avatar_c51b4e" aria-hidden="true">\n                        </div>\n                </foreignObject>\n            </svg>\n        </div>\n    </div>\n    <div class="itemLabel_eef3ef">\n        <span class="defaultColor_a595eb text-sm/normal_dc00ef username">{{username}}</span>\n    </div>\n</div>';
+var item_default = '<div class="item__97e86 role-member">\n    <div class="itemCheckbox__97e86">\n        <div class="wrapper__44b0c avatar__5906b" role="img" aria-hidden="false" style="width: 32px; height: 32px;">\n            <svg width="40" height="32" viewBox="0 0 40 32" class="mask__44b0c svg__44b0c" aria-hidden="true">\n                <foreignObject x="0" y="0" width="32" height="32" mask="url(#svg-mask-avatar-default)">\n                        <div class="avatarStack__44b0c">\n                            <img src="{{avatar_url}}" alt=" " class="avatar__44b0c" aria-hidden="true">\n                        </div>\n                </foreignObject>\n            </svg>\n        </div>\n    </div>\n    <div class="itemLabel__97e86">\n        <span class="defaultColor__4bd52 text-sm/normal_cf4812 username">{{username}}</span>\n    </div>\n</div>';
 
 // src/plugins/RoleMembers/index.ts
 var { DOM, ContextMenu, Patcher, Webpack, UI, Utils } = BdApi;
@@ -214,12 +225,13 @@ var filter = (obj, predicate) => from(Object.entries(obj).filter((o) => {
   return predicate(o[1]);
 }));
 var SelectedGuildStore = BdApi.Webpack.getStore("SelectedGuildStore");
-var GuildStore = BdApi.Webpack.getStore("GuildStore");
 var GuildMemberStore = BdApi.Webpack.getStore("GuildMemberStore");
+var GuildRoleStore = Webpack.getStore("GuildRoleStore");
 var UserStore = BdApi.Webpack.getStore("UserStore");
 var ImageResolver = BdApi.Webpack.getByKeys("getUserAvatarURL", "getEmojiURL");
+var UserModals = BdApi.Webpack.getByKeys("openUserProfileModal");
 var LayerClasses = BdApi.Webpack.getByKeys("layerContainer");
-var getRoles = (guild) => guild?.roles ?? GuildStore?.getRoles(guild?.id);
+var getRoles = (guild) => guild?.roles ?? GuildRoleStore?.getRolesSnapshot(guild?.id);
 var RoleMembers = class extends Plugin {
   constructor(meta) {
     super(meta, config_default);
@@ -237,11 +249,12 @@ var RoleMembers = class extends Plugin {
   patchRoleMention() {
     const Pill = Webpack.getModule(Webpack.Filters.byStrings("interactive", "iconType"), { defaultExport: false });
     Patcher.before(this.meta.name, Pill, "Z", (_, [props]) => {
-      if (!props?.className.toLowerCase().includes("rolemention")) return;
+      if (!props?.className?.toLowerCase?.()?.includes?.("rolemention")) return;
+      if (props.className.toLowerCase().includes("interactive")) return;
       props.className += ` interactive`;
       props.onClick = (e) => {
         const roles = getRoles({ id: SelectedGuildStore.getGuildId() });
-        const name = props.children[1][0].slice(1);
+        const name = props.children[1][0].props.children.slice(1);
         const filtered = filter(roles, (r) => r.name == name);
         if (!filtered) return;
         const role = filtered[Object.keys(filtered)[0]];
@@ -321,7 +334,7 @@ var RoleMembers = class extends Plugin {
       const user = UserStore.getUser(member.userId);
       const elem = DOM.parseHTML(formatString(item_default, { username: Utils.escapeHTML(user.username), avatar_url: ImageResolver.getUserAvatarURL(user) }));
       elem.addEventListener("click", () => {
-        UI.showToast("Sorry, user popouts are currently broken!", { type: "error" });
+        UserModals.openUserProfileModal({ userId: member.userId });
       });
       scroller.append(elem);
     }
