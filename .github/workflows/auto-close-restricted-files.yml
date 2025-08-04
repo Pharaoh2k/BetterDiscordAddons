@@ -116,6 +116,7 @@ jobs:
               //console.log('Acting as user:', currentUser.login);
 
               // Post comment explaining the closure
+              console.log('Posting comment to PR #' + pr.number);
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
