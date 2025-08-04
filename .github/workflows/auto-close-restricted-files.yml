@@ -13,47 +13,49 @@ jobs:
 
       - name: Get list of changed files
         id: changed-files
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          # Get the list of changed files using GitHub API
-          CHANGED_FILES=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files --jq '.[].filename')
-          echo "Changed files:"
-          echo "$CHANGED_FILES"
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get the list of changed files using GitHub API
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
 
-          # Check for restricted patterns
-          RESTRICTED_PATTERNS_MATCHED=false
-          MATCHED_FILES=""
+            const changedFiles = files.map(file => file.filename);
+            console.log('Changed files:', changedFiles);
 
-          # Define restricted patterns (customize these as needed)
-          RESTRICTED_PATTERNS=(
-            "*.plugin.js"
-          )
+            // Check for restricted patterns
+            let restrictedMatched = false;
+            let matchedFiles = '';
 
-          while IFS= read -r file; do
-            # Skip empty lines
-            [[ -z "$file" ]] && continue
+            // Define restricted patterns (customize these as needed)
+            const restrictedPatterns = [
+              '*.plugin.js'
+            ];
 
-            echo "Checking file: $file"
+            for (const file of changedFiles) {
+              console.log('Checking file:', file);
 
-            # Check each pattern
-            for pattern in "${RESTRICTED_PATTERNS[@]}"; do
-              case "$file" in
-                $pattern*)
-                  echo "File $file matches restricted pattern: $pattern"
-                  RESTRICTED_PATTERNS_MATCHED=true
-                  MATCHED_FILES="$MATCHED_FILES- $file (matches pattern: $pattern)\n"
-                  break
-                  ;;
-              esac
-            done
+              for (const pattern of restrictedPatterns) {
+                // Convert glob pattern to regex
+                const regexPattern = pattern.replace(/\*/g, '.*');
+                const regex = new RegExp(regexPattern + '$');
 
-          done <<< "$CHANGED_FILES"
+                if (regex.test(file)) {
+                  console.log(`File ${file} matches restricted pattern: ${pattern}`);
+                  restrictedMatched = true;
+                  matchedFiles += `- ${file} (matches pattern: ${pattern})\n`;
+                  break;
+                }
+              }
+            }
 
-          echo "restricted_matched=$RESTRICTED_PATTERNS_MATCHED" >> $GITHUB_OUTPUT
-          echo "matched_files<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$MATCHED_FILES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+            // Set outputs
+            core.setOutput('restricted_matched', restrictedMatched.toString());
+            core.setOutput('matched_files', matchedFiles);
 
       - name: Close PR if restricted files are modified
         if: steps.changed-files.outputs.restricted_matched == 'true'
