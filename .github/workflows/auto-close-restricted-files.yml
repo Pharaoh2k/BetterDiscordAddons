@@ -112,8 +112,8 @@ jobs:
               console.log('PR author:', author);
 
               // Try to get current user to understand our permissions
-              const { data: currentUser } = await github.rest.users.getAuthenticated();
-              console.log('Acting as user:', currentUser.login);
+              //const { data: currentUser } = await github.rest.users.getAuthenticated();
+              //console.log('Acting as user:', currentUser.login);
 
               // Post comment explaining the closure
               await github.rest.issues.createComment({
