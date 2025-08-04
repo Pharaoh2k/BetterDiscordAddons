@@ -66,7 +66,7 @@ jobs:
           RESTRICTED_MATCHED: ${{ steps.changed-files.outputs.restricted_matched }}
           MATCHED_FILES: ${{ steps.changed-files.outputs.matched_files }}
         with:
-          github-token: ${{ secrets.AUTO_CLOSE_TOKEN || secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.AUTO_CLOSE_TOKEN }}
           script: |
             console.log('=== DEBUG: Starting second step ===');
 
@@ -112,8 +112,27 @@ jobs:
               console.log('PR author:', author);
 
               // Try to get current user to understand our permissions
-              //const { data: currentUser } = await github.rest.users.getAuthenticated();
-              //console.log('Acting as user:', currentUser.login);
+              try {
+                const { data: currentUser } = await github.rest.users.getAuthenticated();
+                console.log('Acting as user:', currentUser.login);
+                console.log('User type:', currentUser.type);
+              } catch (authError) {
+                console.log('Failed to get authenticated user:', authError.message);
+              }
+
+              // Test what token we're actually using
+              console.log('Using AUTO_CLOSE_TOKEN:', process.env.AUTO_CLOSE_TOKEN ? 'YES' : 'NO');
+
+              // Try a simple permission test first
+              try {
+                const { data: repo } = await github.rest.repos.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo
+                });
+                console.log('Can read repo info: YES');
+              } catch (repoError) {
+                console.log('Cannot read repo info:', repoError.message);
+              }
 
               // Post comment explaining the closure
               console.log('Posting comment to PR #' + pr.number);
