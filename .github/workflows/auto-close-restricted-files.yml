@@ -1,0 +1,114 @@
+name: Auto-close PRs modifying restricted files
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-restricted-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get list of changed files
+        id: changed-files
+        run: |
+          # Get the list of changed files
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Check for restricted patterns
+          RESTRICTED_PATTERNS_MATCHED=false
+          MATCHED_FILES=""
+
+          # Define restricted patterns (customize these as needed)
+          RESTRICTED_PATTERNS=(
+            "*.plugin.js"
+          )
+
+          while IFS= read -r file; do
+            # Skip empty lines
+            [[ -z "$file" ]] && continue
+
+            echo "Checking file: $file"
+
+            # Check each pattern
+            for pattern in "${RESTRICTED_PATTERNS[@]}"; do
+              case "$file" in
+                $pattern*)
+                  echo "File $file matches restricted pattern: $pattern"
+                  RESTRICTED_PATTERNS_MATCHED=true
+                  MATCHED_FILES="$MATCHED_FILES- \`$file\` (matches pattern: \`$pattern\`)\n"
+                  break
+                  ;;
+              esac
+            done
+
+          done <<< "$CHANGED_FILES"
+
+          echo "restricted_matched=$RESTRICTED_PATTERNS_MATCHED" >> $GITHUB_OUTPUT
+          echo "matched_files<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$MATCHED_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Close PR if restricted files are modified
+        if: steps.changed-files.outputs.restricted_matched == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            const restrictedMatched = '${{ steps.changed-files.outputs.restricted_matched }}' === 'true';
+
+            let message = `@${author} This pull request has been automatically closed because it modifies restricted files.\n\n`;
+
+            message += `🚫 **Restricted file patterns detected**\n\n`;
+            message += `The following files match restricted patterns:\n`;
+            message += `${{ steps.changed-files.outputs.matched_files }}\n`;
+            message += `These are compiled/built plugin files that are automatically generated from source code. `;
+            message += `Modifying these files directly is not allowed.\n\n`;
+            message += `## How to contribute properly:\n\n`;
+            message += `1. 📁 Make your changes in the \`src/plugins/\` folder instead\n`;
+            message += `2. 🔧 Use the build script to generate the plugin files: \`bun run build\`\n`;
+            message += `3. 📤 Submit a new pull request with only the source file changes from \`src/\`\n`;
+            message += `4. ❌ Do **NOT** include the generated files from \`Plugins/\` in your PR\n\n`;
+            message += `## Additional resources:\n`;
+            message += `- 📖 [Contributing Guidelines](${context.payload.repository.html_url}/blob/master/CONTRIBUTING.md)\n`;
+            message += `- 🏗️ [Build Documentation](${context.payload.repository.html_url}/blob/master/README.md)\n\n`;
+            message += `Thank you for your interest in contributing! Please resubmit your PR following the guidelines above. 🙏`;
+
+            // Post comment explaining the closure
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: message
+            });
+
+            // Close the pull request
+            await github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              state: 'closed'
+            });
+
+            // Add helpful labels
+            const labels = ['auto-closed', 'invalid-files', 'restricted-patterns'];
+
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: labels
+              });
+            } catch (error) {
+              console.log('Note: Could not add labels. They may not exist in the repository.');
+            }
+            console.log(`Successfully closed PR #${pr.number} due to restricted file modifications`);

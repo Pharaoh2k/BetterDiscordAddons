@@ -8,12 +8,11 @@
     "url": "https://github.com/zerebos/BetterDiscordAddons"
   },
   "scripts": {
-    "build": "esrun scripts/build.ts"
+    "build": "bun scripts/build.ts"
   },
   "author": "Zerebos",
   "license": "MIT",
   "devDependencies": {
-    "@digitak/esrun": "^3.2.26",
     "@eslint/js": "^9.17.0",
     "@types/eslint": "^9.6.1",
     "@types/node": "^22.10.2",
