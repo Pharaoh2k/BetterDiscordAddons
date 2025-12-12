@@ -347,8 +347,11 @@ export default class PermissionsViewer extends Plugin {
             const item = DOM.parseHTML(!isOverride || (displayRoles[role] as PermissionOverwrite).type == 0 ? ModalButtonHTML : formatString(ModalButtonUserHTML, {avatarUrl: user.getAvatarURL(null, 16, true)})) as HTMLDivElement; // getAvatarURL(guildId, size, canAnimate);
             if (!isOverride || (displayRoles[role] as PermissionOverwrite).type == 0) item.style.color = referenceRoles![role as keyof typeof referenceRoles].colorString as string;
             else item.style.color = member.colorString;
-            if (isOverride) item.querySelector(".role-name")!.innerHTML = Utils.escapeHTML((displayRoles[role] as PermissionOverwrite).type == 0 ? (referenceRoles![role as keyof typeof referenceRoles] as GuildRole).name : user.username);
-            else item.querySelector(".role-name")!.innerHTML = Utils.escapeHTML((referenceRoles![role as keyof typeof referenceRoles] as GuildRole).name);
+            const roleNameEl = item.querySelector(".role-name") as HTMLElement;
+            const isRoleType = !isOverride || (displayRoles[role] as PermissionOverwrite).type == 0;
+            const roleName = isRoleType ? (referenceRoles![role as keyof typeof referenceRoles] as GuildRole).name : user.username;
+            roleNameEl.innerHTML = Utils.escapeHTML(roleName);
+            roleNameEl.title = roleName;
             modal.querySelector(".role-scroller")!.append(item);
             item.addEventListener("click", () => {
                 modal.querySelectorAll(".role-item.selected").forEach(e => e.classList.remove("selected"));
